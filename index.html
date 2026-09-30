@@ -56,6 +56,30 @@ textarea{width:100%;min-height:110px;resize:vertical;font:inherit;padding:10px;b
 .foot button{font:inherit;font-size:.8rem;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:6px 10px;cursor:pointer}
 :focus-visible{outline:2px solid var(--done);outline-offset:1px}
 @media (max-width:520px){.stats{grid-template-columns:repeat(2,1fr)}.stat b{font-size:1.3rem}.stat span{font-size:.75rem}}
+.bars{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.hb{display:grid;grid-template-columns:110px 1fr 40px;gap:8px;align-items:center;font-size:.8rem}
+.hb i{display:block;height:10px;border-radius:5px;background:var(--done)}
+.hb div{background:var(--bg);border-radius:5px}
+.hb span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.set{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+.set label{font-size:.9rem}
+.set select,.set input[type=time]{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+.hint{color:var(--mute);font-size:.78rem;margin:8px 0 0}
+td.name,th.name{min-width:132px}
+td.name input{width:100px}
+td.cell.on{background:var(--hc,var(--done))}
+.nm{display:flex;align-items:center;width:132px}
+.em{border:0;background:none;font-size:1rem;width:30px;height:31px;cursor:pointer;padding:0;color:var(--mute)}
+.em.empty{opacity:.45}
+#pick{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:flex-end;justify-content:center;z-index:10}
+#pick[hidden]{display:none}
+.pk{background:var(--card);width:100%;max-width:460px;border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px))}
+.pk h3{margin:0 0 4px;font-size:.95rem}
+.pkg{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 12px}
+.pkg button{width:40px;height:40px;border:1px solid var(--line);border-radius:10px;background:var(--bg);font-size:1.15rem;cursor:pointer;color:var(--ink);padding:0}
+.pkg button.sel{outline:2px solid var(--done)}
+.pkg .sw{border-radius:50%;border:0}
+#pkX{font:inherit;width:100%;padding:10px;border:0;border-radius:10px;background:var(--done);color:var(--card);cursor:pointer}
 </style>
 </head>
 <body>
@@ -85,10 +109,26 @@ textarea{width:100%;min-height:110px;resize:vertical;font:inherit;padding:10px;b
     <div class="scroll"><table id="sleep"></table></div>
   </section>
 
+  <section>
+    <h2>Monthly summary</h2>
+    <div id="chartDaily"></div>
+    <div class="bars" id="chartHabits"></div>
+  </section>
+
   <section class="notes">
     <div><label for="goal">My monthly goal</label><textarea id="goal"></textarea></div>
     <div><label for="ach">What I achieved this month</label><textarea id="ach"></textarea></div>
     <div><label for="imp">What I should improve</label><textarea id="imp"></textarea></div>
+  </section>
+
+  <section>
+    <h2>Settings</h2>
+    <div class="set">
+      <label>Theme <select id="theme"><option value="ice">Ice</option><option value="forest">Forest</option><option value="sunset">Sunset</option><option value="mono">Mono</option></select></label>
+      <label><input type="checkbox" id="remOn"> Daily reminder</label>
+      <input type="time" id="remTime" value="21:00" aria-label="Reminder time">
+    </div>
+    <p class="hint">The reminder fires while the app is open or running in the background. A reminder that works with the app fully closed needs a server, which comes with cloud sync.</p>
   </section>
 
   <div class="foot">
@@ -98,6 +138,13 @@ textarea{width:100%;min-height:110px;resize:vertical;font:inherit;padding:10px;b
   </div>
 </main>
 
+<div id="pick" hidden role="dialog" aria-label="Habit style">
+  <div class="pk">
+    <h3>Emoji</h3><div class="pkg" id="pkE"></div>
+    <h3>Color</h3><div class="pkg" id="pkC"></div>
+    <button id="pkX">Done</button>
+  </div>
+</div>
 <script>
 (function(){
   var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -115,6 +162,7 @@ textarea{width:100%;min-height:110px;resize:vertical;font:inherit;padding:10px;b
 
   function load(){
     habits=get('arc:habits')||habits;
+    meta=get('arc:hmeta')||[];
     $('name').value=get('arc:name')||'';
     data=get(key())||blank();
     $('goal').value=data.goal;$('ach').value=data.ach;$('imp').value=data.imp;
@@ -133,7 +181,8 @@ textarea{width:100%;min-height:110px;resize:vertical;font:inherit;padding:10px;b
     var n=dim(),t=todayDay(),h='';
     h+=head('Habit')+'<th>%</th><th>Streak</th></tr>';
     for(var i=0;i<10;i++){
-      h+='<tr><td class="name"><input data-hn="'+i+'" value="'+esc(habits[i])+'" placeholder="Habit '+(i+1)+'" maxlength="30"></td>';
+      var hm=M(i);
+      h+='<tr'+(hm.c?' style="--hc:'+hm.c+'"':'')+'><td class="name"><div class="nm"><button class="em'+(hm.e?'':' empty')+'" data-em="'+i+'" aria-label="Choose emoji and color">'+(hm.e?esc(hm.e):'+')+'</button><input data-hn="'+i+'" value="'+esc(habits[i])+'" placeholder="Habit '+(i+1)+'" maxlength="30"></div></td>';
       for(var d=1;d<=n;d++){
         var on=data.done[i+'_'+d];
         h+='<td class="cell'+(on?' on':'')+(isToday(d)?' today':'')+'" data-h="'+i+'" data-d="'+d+'"></td>';
@@ -186,6 +235,7 @@ textarea{width:100%;min-height:110px;resize:vertical;font:inherit;padding:10px;b
       if(nm&&mx>best)best=mx;
     }
     $('s4').textContent=best;
+    charts();
   }
 
   function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
@@ -228,6 +278,95 @@ textarea{width:100%;min-height:110px;resize:vertical;font:inherit;padding:10px;b
   $('reset').onclick=function(){
     if(confirm('Clear all ticks, sleep and notes for '+MONTHS[m]+'?')){data=blank();save();$('goal').value=$('ach').value=$('imp').value='';render();}
   };
+
+  var EMOJIS=['💧','🏃','🧘','📚','💪','🥗','😴','🚿','🌅','✍️','🪥','🧠','🎯','☀️','🧊','💻'];
+  var COLORS=['#e4572e','#f5a623','#2d9c5b','#2a7fba','#7b5ea7','#d6478b'];
+  var meta=get('arc:hmeta')||[],pi=-1;
+  function M(i){
+    var m=meta[i];
+    if(!m||typeof m!=='object')m=meta[i]={e:'',c:''};
+    if(COLORS.indexOf(m.c)<0)m.c='';
+    if(typeof m.e!=='string'||m.e.length>8)m.e='';
+    return m;
+  }
+  function buildPick(){
+    var m=M(pi),e='',c='';
+    EMOJIS.concat(['']).forEach(function(x){e+='<button data-e="'+x+'"'+(m.e===x?' class="sel"':'')+'>'+(x||'\u2715')+'</button>';});
+    COLORS.concat(['']).forEach(function(x){c+='<button data-c="'+x+'" class="'+(x?'sw':'')+(m.c===x?' sel':'')+'"'+(x?' style="background:'+x+'"':'')+' aria-label="'+(x||'Theme color')+'">'+(x?'':'Auto')+'</button>';});
+    $('pkE').innerHTML=e;$('pkC').innerHTML=c;
+  }
+  document.addEventListener('click',function(e){
+    var t=e.target,b=t.closest&&t.closest('.em');
+    if(b){pi=+b.dataset.em;buildPick();$('pick').hidden=false;return;}
+    if(t.id==='pick'||t.id==='pkX'){$('pick').hidden=true;return;}
+    var x=t.closest&&t.closest('#pick button');
+    if(!x||pi<0)return;
+    if(x.dataset.e!==undefined)M(pi).e=x.dataset.e;
+    else if(x.dataset.c!==undefined)M(pi).c=x.dataset.c;
+    else return;
+    set('arc:hmeta',meta);buildPick();render();
+  });
+
+  function charts(){
+    var n=dim(),t=todayDay(),named=[],i,d;
+    for(i=0;i<10;i++)if(habits[i].trim())named.push(i);
+    var W=n*12,s='<svg viewBox="0 0 '+W+' 80" width="100%" role="img" aria-label="Daily completion chart">';
+    s+='<line x1="0" y1="60" x2="'+W+'" y2="60" stroke="var(--line)"/>';
+    for(d=1;d<=n;d++){
+      var c=0;named.forEach(function(k){if(data.done[k+'_'+d])c++;});
+      var pct=named.length?c/named.length:0,ht=Math.round(pct*56);
+      s+='<rect x="'+((d-1)*12+2)+'" y="'+(60-ht)+'" width="8" height="'+ht+'" rx="2" fill="var(--done)" opacity="'+(d>t?0.25:1)+'"/>';
+      if(d===1||d%5===0)s+='<text x="'+((d-1)*12+6)+'" y="74" font-size="8" text-anchor="middle" fill="var(--mute)">'+d+'</text>';
+    }
+    $('chartDaily').innerHTML='<div style="font-size:.85rem;margin-bottom:4px">Daily completion</div>'+s+'</svg>';
+    var b='';
+    named.forEach(function(k){
+      var cnt=0;for(d=1;d<=t;d++)if(data.done[k+'_'+d])cnt++;
+      var pc=t?Math.round(cnt/t*100):0;
+      var mk=M(k);
+      b+='<div class="hb"><span>'+esc((mk.e?mk.e+' ':'')+habits[k])+'</span><div><i style="width:'+pc+'%'+(mk.c?';background:'+mk.c:'')+'"></i></div><span>'+pc+'%</span></div>';
+    });
+    $('chartHabits').innerHTML=b||'<span class="hint">Add a habit name to see its chart.</span>';
+  }
+
+  var THEMES={ice:{l:['#1d4b69','#a9cde3'],d:['#6fb6de','#2f5a75']},forest:{l:['#2d6a4f','#b7dfc6'],d:['#74c69d','#2d5a45']},sunset:{l:['#b5482a','#f3c5a8'],d:['#f08a5d','#6b3a2a']},mono:{l:['#222222','#cfcfcf'],d:['#eeeeee','#555555']}};
+  var mq=window.matchMedia?window.matchMedia('(prefers-color-scheme: dark)'):null;
+  function applyTheme(){
+    var name=get('arc:theme')||'ice',T=THEMES[name]||THEMES.ice,c=(mq&&mq.matches)?T.d:T.l,r=document.documentElement.style;
+    r.setProperty('--done',c[0]);r.setProperty('--ice',c[1]);
+    $('theme').value=name;
+  }
+  $('theme').onchange=function(){set('arc:theme',this.value);applyTheme();};
+  if(mq&&mq.addEventListener)mq.addEventListener('change',applyTheme);
+  applyTheme();
+
+  var rem=get('arc:remind')||{on:false,time:'21:00',last:''};
+  $('remOn').checked=!!rem.on;$('remTime').value=rem.time||'21:00';
+  function notify(){
+    var msg="Time to tick today's habits and log your sleep.";
+    try{
+      if(navigator.serviceWorker&&navigator.serviceWorker.ready){
+        navigator.serviceWorker.ready.then(function(r){r.showNotification('Winter Arc',{body:msg,icon:'icons/icon-192.png'});}).catch(function(){new Notification('Winter Arc',{body:msg});});
+      }else new Notification('Winter Arc',{body:msg});
+    }catch(e){}
+  }
+  function tick(){
+    if(!rem.on)return;
+    var d=new Date(),p=function(x){return ('0'+x).slice(-2);};
+    var hm=p(d.getHours())+':'+p(d.getMinutes()),day=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
+    if(hm>=rem.time&&rem.last!==day){rem.last=day;set('arc:remind',rem);notify();}
+  }
+  $('remOn').onchange=function(){
+    var box=this;
+    if(!box.checked){rem.on=false;set('arc:remind',rem);return;}
+    if(!('Notification' in window)){alert('This browser does not support notifications.');box.checked=false;return;}
+    Notification.requestPermission().then(function(res){
+      if(res==='granted'){rem.on=true;rem.time=$('remTime').value;set('arc:remind',rem);tick();}
+      else{box.checked=false;alert('Allow notifications for this site to use reminders.');}
+    });
+  };
+  $('remTime').onchange=function(){rem.time=this.value;rem.last='';set('arc:remind',rem);};
+  setInterval(tick,30000);
 
   $('export').onclick=function(){
     var out={};
