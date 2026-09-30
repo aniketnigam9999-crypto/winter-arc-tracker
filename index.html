@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Winter Arc Tracker</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1d4b69">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Winter Arc">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="icons/icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eaf1f6;--card:#fff;--ink:#12202c;--mute:#6a7d8c;--line:#cfdbe4;--done:#1d4b69;--ice:#a9cde3;--today:#fff3c4;
+--font:'Bricolage Grotesque',system-ui,-apple-system,'Segoe UI',sans-serif;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1a24;--card:#152633;--ink:#e6f0f7;--mute:#8aa1b2;--line:#28404f;--done:#6fb6de;--ice:#2f5a75;--today:#3b3a1f}}
+:root[data-theme="dark"]{--bg:#0e1a24;--card:#152633;--ink:#e6f0f7;--mute:#8aa1b2;--line:#28404f;--done:#6fb6de;--ice:#2f5a75;--today:#3b3a1f}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.4}
+main{max-width:1100px;margin:0 auto;padding:16px 12px 40px}
+h1{font-size:clamp(1.8rem,6vw,2.8rem);font-weight:800;margin:4px 0 2px;letter-spacing:-.02em}
+.sub{color:var(--mute);margin:0 0 16px}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+.bar input[type=text]{font:inherit;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);min-width:0;flex:1 1 140px}
+.month{display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:2px}
+.month button{font:inherit;border:0;background:none;color:var(--ink);font-size:1.2rem;padding:6px 12px;cursor:pointer;border-radius:8px}
+.month button:hover{background:var(--bg)}
+.month b{min-width:130px;text-align:center}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+.stat b{display:block;font-size:1.7rem;font-weight:800;line-height:1.1}
+.stat span{color:var(--mute);font-size:.85rem}
+section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:14px}
+h2{font-size:1.05rem;margin:0 0 8px;font-weight:600}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;min-width:100%}
+td,th{border:1px solid var(--line);text-align:center;font-size:.72rem;padding:0;min-width:30px;height:32px;color:var(--mute);font-weight:400}
+th.today{background:var(--today);color:var(--ink);font-weight:800}
+td.name,th.name{position:sticky;left:0;z-index:2;background:var(--card);min-width:118px;text-align:left}
+td.name input{width:118px;height:31px;border:0;background:transparent;color:var(--ink);font:inherit;font-size:.85rem;padding:0 8px}
+td.name input::placeholder{color:var(--mute)}
+td.pct{min-width:44px;font-weight:600;color:var(--ink)}
+td.cell{cursor:pointer;-webkit-tap-highlight-color:transparent}
+td.cell.on{background:var(--done)}
+td.cell.today:not(.on){background:var(--today)}
+td.sl.on{background:var(--ice)}
+td.sl.top{background:var(--done)}
+td.lbl{position:sticky;left:0;background:var(--card);z-index:2;text-align:left;padding-left:8px;font-weight:600;color:var(--ink)}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+.notes label{font-weight:600;font-size:.9rem;display:block;margin-bottom:4px}
+textarea{width:100%;min-height:110px;resize:vertical;font:inherit;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+.foot{display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap;color:var(--mute);font-size:.8rem}
+.foot button{font:inherit;font-size:.8rem;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:6px 10px;cursor:pointer}
+:focus-visible{outline:2px solid var(--done);outline-offset:1px}
+@media (max-width:520px){.stats{grid-template-columns:repeat(2,1fr)}.stat b{font-size:1.3rem}.stat span{font-size:.75rem}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Winter Arc Tracker</h1>
+  <p class="sub">Tap a box to mark a habit done. Tap the hours row to log sleep.</p>
+
+  <div class="bar">
+    <input type="text" id="name" placeholder="Your name" aria-label="Your name">
+    <div class="month"><button id="prev" aria-label="Previous month">‹</button><b id="mlabel"></b><button id="next" aria-label="Next month">›</button></div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><b id="s1">0%</b><span>Habits done</span></div>
+    <div class="stat"><b id="s2">0</b><span>Perfect days</span></div>
+    <div class="stat"><b id="s4">0</b><span>Best streak (days)</span></div>
+    <div class="stat"><b id="s3">–</b><span>Avg sleep (hrs)</span></div>
+  </div>
+
+  <section>
+    <h2>Habits</h2>
+    <div class="scroll"><table id="habits"></table></div>
+  </section>
+
+  <section>
+    <h2>Sleep</h2>
+    <div class="scroll"><table id="sleep"></table></div>
+  </section>
+
+  <section class="notes">
+    <div><label for="goal">My monthly goal</label><textarea id="goal"></textarea></div>
+    <div><label for="ach">What I achieved this month</label><textarea id="ach"></textarea></div>
+    <div><label for="imp">What I should improve</label><textarea id="imp"></textarea></div>
+  </section>
+
+  <div class="foot">
+    <span>Saved on this device only.</span>
+    <span><button id="export">Export backup</button> <button id="import">Import</button> <button id="reset">Clear this month</button></span>
+    <input type="file" id="file" accept="application/json,.json" hidden>
+  </div>
+</main>
+
+<script>
+(function(){
+  var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var now=new Date(), y=now.getFullYear(), m=now.getMonth();
+  var habits=new Array(10).fill(''), data=blank();
+
+  function blank(){return {done:{},sleep:{},goal:'',ach:'',imp:''};}
+  function key(){return 'arc:'+y+'-'+(m+1);}
+  function get(k){try{var v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}}
+  function set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+  function $(id){return document.getElementById(id);}
+  function dim(){return new Date(y,m+1,0).getDate();}
+  function todayDay(){return (y===now.getFullYear()&&m===now.getMonth())?now.getDate():(new Date(y,m,1)>now?0:dim());}
+  function isToday(d){return y===now.getFullYear()&&m===now.getMonth()&&d===now.getDate();}
+
+  function load(){
+    habits=get('arc:habits')||habits;
+    $('name').value=get('arc:name')||'';
+    data=get(key())||blank();
+    $('goal').value=data.goal;$('ach').value=data.ach;$('imp').value=data.imp;
+    render();
+  }
+  function save(){set(key(),data);}
+
+  function head(label){
+    var s='<tr><th class="name">'+label+'</th>';
+    for(var d=1;d<=dim();d++)s+='<th'+(isToday(d)?' class="today"':'')+'>'+d+'</th>';
+    return s;
+  }
+
+  function render(){
+    $('mlabel').textContent=MONTHS[m]+' '+y;
+    var n=dim(),t=todayDay(),h='';
+    h+=head('Habit')+'<th>%</th><th>Streak</th></tr>';
+    for(var i=0;i<10;i++){
+      h+='<tr><td class="name"><input data-hn="'+i+'" value="'+esc(habits[i])+'" placeholder="Habit '+(i+1)+'" maxlength="30"></td>';
+      for(var d=1;d<=n;d++){
+        var on=data.done[i+'_'+d];
+        h+='<td class="cell'+(on?' on':'')+(isToday(d)?' today':'')+'" data-h="'+i+'" data-d="'+d+'"></td>';
+      }
+      h+='<td class="pct" id="p'+i+'"></td><td class="pct" id="k'+i+'"></td></tr>';
+    }
+    $('habits').innerHTML=h;
+
+    var s=head('Hours')+'</tr>';
+    for(var hr=10;hr>=4;hr--){
+      s+='<tr><td class="lbl">'+hr+' hrs</td>';
+      for(var d2=1;d2<=n;d2++){
+        var v=data.sleep[d2],cls='cell sl';
+        if(v&&hr<=v)cls+=' on';
+        if(v===hr)cls+=' top';
+        s+='<td class="'+cls+'" data-s="'+hr+'" data-d="'+d2+'"></td>';
+      }
+      s+='</tr>';
+    }
+    $('sleep').innerHTML=s;
+    stats();
+  }
+
+  function stats(){
+    var n=dim(),t=todayDay(),named=[],i,d;
+    for(i=0;i<10;i++)if(habits[i].trim())named.push(i);
+    var done=0,perfect=0;
+    for(d=1;d<=t;d++){
+      var all=named.length>0;
+      named.forEach(function(k){if(data.done[k+'_'+d])done++;else all=false;});
+      if(all)perfect++;
+    }
+    var total=named.length*t;
+    $('s1').textContent=total?Math.round(done/total*100)+'%':'0%';
+    $('s2').textContent=perfect;
+    var sum=0,c=0;for(d=1;d<=n;d++)if(data.sleep[d]){sum+=data.sleep[d];c++;}
+    $('s3').textContent=c?(sum/c).toFixed(1):'–';
+    var best=0;
+    for(i=0;i<10;i++){
+      var el=$('p'+i);if(!el)continue;
+      var cnt=0,run=0,mx=0,cur=0,e=t;
+      for(d=1;d<=t;d++){
+        if(data.done[i+'_'+d]){cnt++;run++;if(run>mx)mx=run;}else run=0;
+      }
+      if(t&&isToday(t)&&!data.done[i+'_'+t])e=t-1;
+      for(d=e;d>=1&&data.done[i+'_'+d];d--)cur++;
+      var nm=habits[i].trim();
+      el.textContent=(nm&&t)?Math.round(cnt/t*100)+'%':'';
+      $('k'+i).textContent=(nm&&cur)?cur+'d \uD83D\uDD25':'';
+      if(nm&&mx>best)best=mx;
+    }
+    $('s4').textContent=best;
+  }
+
+  function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+
+  document.addEventListener('click',function(e){
+    var td=e.target.closest&&e.target.closest('td[data-d]');
+    if(!td)return;
+    var d=+td.dataset.d;
+    if(td.dataset.h!==undefined){
+      var k=td.dataset.h+'_'+d;
+      if(data.done[k])delete data.done[k];else data.done[k]=1;
+      td.classList.toggle('on');
+      stats();
+    }else if(td.dataset.s!==undefined){
+      var hr=+td.dataset.s;
+      if(data.sleep[d]===hr)delete data.sleep[d];else data.sleep[d]=hr;
+      var rows=$('sleep').querySelectorAll('td[data-d="'+d+'"]');
+      rows.forEach(function(c){
+        var r=+c.dataset.s,v=data.sleep[d];
+        c.classList.toggle('on',!!v&&r<=v);
+        c.classList.toggle('top',v===r);
+      });
+      stats();
+    }
+    save();
+  });
+
+  document.addEventListener('input',function(e){
+    var t=e.target;
+    if(t.dataset&&t.dataset.hn!==undefined){habits[+t.dataset.hn]=t.value;set('arc:habits',habits);stats();}
+    else if(t.id==='name')set('arc:name',t.value);
+    else if(t.id==='goal'){data.goal=t.value;save();}
+    else if(t.id==='ach'){data.ach=t.value;save();}
+    else if(t.id==='imp'){data.imp=t.value;save();}
+  });
+
+  function shift(x){m+=x;if(m<0){m=11;y--;}if(m>11){m=0;y++;}load();}
+  $('prev').onclick=function(){shift(-1);};
+  $('next').onclick=function(){shift(1);};
+  $('reset').onclick=function(){
+    if(confirm('Clear all ticks, sleep and notes for '+MONTHS[m]+'?')){data=blank();save();$('goal').value=$('ach').value=$('imp').value='';render();}
+  };
+
+  $('export').onclick=function(){
+    var out={};
+    try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k.indexOf('arc:')===0)out[k]=localStorage.getItem(k);}}catch(e){}
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([JSON.stringify(out)],{type:'application/json'}));
+    a.download='winter-arc-backup-'+new Date().toISOString().slice(0,10)+'.json';
+    document.body.appendChild(a);a.click();a.remove();
+  };
+  $('import').onclick=function(){
+    if(confirm('Importing replaces matching months and habits on this device. Continue?'))$('file').click();
+  };
+  $('file').onchange=function(){
+    var f=this.files[0];if(!f)return;
+    var r=new FileReader();
+    r.onload=function(){
+      try{
+        var o=JSON.parse(r.result),n=0;
+        Object.keys(o).forEach(function(k){
+          if(/^arc:/.test(k)&&typeof o[k]==='string'){JSON.parse(o[k]);localStorage.setItem(k,o[k]);n++;}
+        });
+        alert(n?'Backup restored ('+n+' items).':'No Winter Arc data found in this file.');
+        load();
+      }catch(e){alert('Could not read this file. Pick a Winter Arc backup (.json).');}
+    };
+    r.readAsText(f);this.value='';
+  };
+  load();
+  if("serviceWorker" in navigator&&location.protocol.indexOf("http")===0){navigator.serviceWorker.register("sw.js").catch(function(){});}
+})();
+</script>
+</body>
+</html>
